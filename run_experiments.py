@@ -5,7 +5,8 @@ from datetime import datetime
 from parallel_bo import (
     create_objective,
     run_qlogei_optimization,
-    run_async_simulation
+    run_async_simulation,
+    run_random_search
 )
 
 def run_experiment(
@@ -17,7 +18,12 @@ def run_experiment(
     n_runs: int
 ):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M")
-    strategy_name = "qLogEI" if strategy == "qlogei" else "AsyncSimulation"
+    strategy_map = {
+        "qlogei": "qLogEI",
+        "async_simulation": "AsyncSimulation",
+        "random_search": "RandomSearch"
+    }
+    strategy_name = strategy_map.get(strategy, strategy)
     save_dir = Path(f"data/{strategy_name}/dim={dim}/q={batch_size}/{timestamp}")
     save_dir.mkdir(parents=True, exist_ok=True)
 
@@ -45,6 +51,15 @@ def run_experiment(
             )
         elif strategy == "async_simulation":
             x_all, y_all, best_value = run_async_simulation(
+                objective_fn=objective_fn,
+                dim=dim,
+                n_init=n_init,
+                n_iterations=n_iterations,
+                batch_size=batch_size,
+                seed=seed
+            )
+        elif strategy == "random_search":
+            x_all, y_all, best_value = run_random_search(
                 objective_fn=objective_fn,
                 dim=dim,
                 n_init=n_init,
@@ -102,31 +117,39 @@ def run_experiment(
 
 
 if __name__ == "__main__":
-    N_RUNS = 1
-    N_ITERATIONS = 20
+    import argparse
 
-    dimensions = [1]
-    batch_sizes = [1, 2]
+    parser = argparse.ArgumentParser(description='Run Bayesian Optimization experiments')
+    parser.add_argument('--dim', '-d', type=int, default=1, help='Dimension of the problem')
+    parser.add_argument('--batch_size', '-q', type=int, default=50, help='Batch size (default: 50)')
+    parser.add_argument('--n_runs', '-r', type=int, default=30, help='Number of runs (default: 30)')
+    parser.add_argument('--n_iterations', '-i', type=int, default=20, help='Number of iterations (default: 20)')
 
-    for dim in dimensions:
-        for q in batch_sizes:
-            n_init = 3 * dim
-            run_experiment(
-                strategy="qlogei",
-                dim=dim,
-                batch_size=q,
-                n_init=n_init,
-                n_iterations=N_ITERATIONS,
-                n_runs=N_RUNS
-            )
+    args = parser.parse_args()
 
-            run_experiment(
-                strategy="async_simulation",
-                dim=dim,
-                batch_size=q,
-                n_init=n_init,
-                n_iterations=N_ITERATIONS,
-                n_runs=N_RUNS
-            )
+    dim = args.dim
+    q = args.batch_size
+    n_init = 3 * q
+
+    print(f"\nStarting experiments with d={dim}, q={q}, n_runs={args.n_runs}, n_iterations={args.n_iterations}")
+    print("="*70)
+
+    run_experiment(
+        strategy="qlogei",
+        dim=dim,
+        batch_size=q,
+        n_init=n_init,
+        n_iterations=args.n_iterations,
+        n_runs=args.n_runs
+    )
+
+    run_experiment(
+        strategy="async_simulation",
+        dim=dim,
+        batch_size=q,
+        n_init=n_init,
+        n_iterations=args.n_iterations,
+        n_runs=args.n_runs
+    )
 
     print("\nAll experiments completed!")
