@@ -1,7 +1,7 @@
 import torch
 from botorch.acquisition import qLogExpectedImprovement, LogExpectedImprovement
 from botorch.models import SingleTaskGP
-from botorch.fit import fit_gpytorch_mll
+from botorch.optim.fit import fit_gpytorch_mll_torch
 from botorch.optim import optimize_acqf
 from botorch.test_functions import Ackley
 from botorch.utils.transforms import unnormalize
@@ -48,7 +48,7 @@ def run_qlogei_optimization(
     for iteration in range(n_iterations):
         model = SingleTaskGP(x_all, y_all)
         mll = ExactMarginalLogLikelihood(model.likelihood, model)
-        fit_gpytorch_mll(mll)
+        fit_gpytorch_mll_torch(mll)
 
         qlogei = qLogExpectedImprovement(
             model=model,
@@ -60,7 +60,7 @@ def run_qlogei_optimization(
             bounds=unit_bounds(dim),
             q=batch_size,
             num_restarts=10,
-            raw_samples=1000 * dim,
+            raw_samples=1024,
         )
 
         y_new = objective_fn(candidates).unsqueeze(-1)
@@ -97,7 +97,7 @@ def run_async_simulation(
         if iteration == 0:
             model = SingleTaskGP(x_all, y_all)
             mll = ExactMarginalLogLikelihood(model.likelihood, model)
-            fit_gpytorch_mll(mll) # TODO: there is also ..._torch version of that
+            fit_gpytorch_mll_torch(mll)
 
             qlogei = qLogExpectedImprovement(
                 model=model,
@@ -109,7 +109,7 @@ def run_async_simulation(
                 bounds=unit_bounds(dim),
                 q=batch_size,
                 num_restarts=10,
-                raw_samples=1000 * dim,
+                raw_samples=1024,
             )
 
             y_new = objective_fn(candidates).unsqueeze(-1)
@@ -117,19 +117,22 @@ def run_async_simulation(
             x_all = torch.cat([x_all, candidates], dim=0)
             y_all = torch.cat([y_all, y_new], dim=0)
 
+            print(f"Iteration 1/{n_iterations}: Best value = {y_all.max().item():.4f}, "
+                  f"Total points = {len(x_all)}")
+
         # Subsequent iterations: async simulation
         else:
+            n_at_iteration_start = len(x_all)
             for worker_idx in range(batch_size):
-                current_n = len(x_all)
-                # Dynamically expose evaluated points to workers
-                n_points_to_use = current_n - batch_size + worker_idx + 1
+                # Worker k sees: full dataset before last iteration + k results from previous iteration
+                n_points_to_use = n_at_iteration_start - batch_size + worker_idx + 1
 
                 x_train = x_all[:n_points_to_use]
                 y_train = y_all[:n_points_to_use]
 
                 model = SingleTaskGP(x_train, y_train)
                 mll = ExactMarginalLogLikelihood(model.likelihood, model)
-                fit_gpytorch_mll(mll)
+                fit_gpytorch_mll_torch(mll)
 
                 logei = LogExpectedImprovement(
                     model=model,
@@ -141,7 +144,7 @@ def run_async_simulation(
                     bounds=unit_bounds(dim),
                     q=1,
                     num_restarts=10,
-                    raw_samples=1000 * dim,
+                    raw_samples=1024,
                 )
 
                 y_new = objective_fn(candidate).unsqueeze(-1)
@@ -152,8 +155,58 @@ def run_async_simulation(
                 iteration_x.append(candidate)
                 iteration_y.append(y_new)
 
-        print(f"Iteration {iteration + 1}/{n_iterations}: Best value = {y_all.max().item():.4f}, "
-              f"Total points = {len(x_all)}")
+            print(f"Iteration {iteration + 1}/{n_iterations}: Best value = {y_all.max().item():.4f}, "
+                  f"Total points = {len(x_all)}")
+
+    best_value = y_all.max().item()
+
+    return x_all, y_all, best_value
+
+
+def run_single_point_longer(
+    objective_fn,
+    dim: int,
+    n_init: int,
+    n_iterations: int,
+    batch_size: int,
+    seed: int = 42
+):
+    # Match the evaluation budget of batched methods: q points per iteration.
+    total_iterations = n_iterations * batch_size
+
+    x_init = draw_init_points(n_init, dim, seed)
+    y_init = objective_fn(x_init).unsqueeze(-1)
+
+    x_all = x_init.clone()
+    y_all = y_init.clone()
+
+    for iteration in range(total_iterations):
+        model = SingleTaskGP(x_all, y_all)
+        mll = ExactMarginalLogLikelihood(model.likelihood, model)
+        fit_gpytorch_mll_torch(mll)
+
+        qlogei = qLogExpectedImprovement(
+            model=model,
+            best_f=y_all.max().item()
+        )
+
+        candidate, acq_value = optimize_acqf(
+            acq_function=qlogei,
+            bounds=unit_bounds(dim),
+            q=1,
+            num_restarts=10,
+            raw_samples=1024,
+        )
+
+        y_new = objective_fn(candidate).unsqueeze(-1)
+        x_all = torch.cat([x_all, candidate], dim=0)
+        y_all = torch.cat([y_all, y_new], dim=0)
+
+        if iteration % batch_size == 0:
+            print(
+                f"Iteration {iteration + 1}/{total_iterations}: "
+                f"Best value = {y_all.max().item():.4f}, Total points = {len(x_all)}"
+            )
 
     best_value = y_all.max().item()
 

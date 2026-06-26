@@ -1,4 +1,3 @@
-import torch
 import json
 from pathlib import Path
 from datetime import datetime
@@ -6,6 +5,7 @@ from parallel_bo import (
     create_objective,
     run_qlogei_optimization,
     run_async_simulation,
+    run_single_point_longer,
     run_random_search
 )
 
@@ -21,6 +21,7 @@ def run_experiment(
     strategy_map = {
         "qlogei": "qLogEI",
         "async_simulation": "AsyncSimulation",
+        "single_point_longer": "SinglePointLonger",
         "random_search": "RandomSearch"
     }
     strategy_name = strategy_map.get(strategy, strategy)
@@ -51,6 +52,15 @@ def run_experiment(
             )
         elif strategy == "async_simulation":
             x_all, y_all, best_value = run_async_simulation(
+                objective_fn=objective_fn,
+                dim=dim,
+                n_init=n_init,
+                n_iterations=n_iterations,
+                batch_size=batch_size,
+                seed=seed
+            )
+        elif strategy == "single_point_longer":
+            x_all, y_all, best_value = run_single_point_longer(
                 objective_fn=objective_fn,
                 dim=dim,
                 n_init=n_init,
@@ -93,6 +103,7 @@ def run_experiment(
         "batch_size": batch_size,
         "n_init": n_init,
         "n_iterations": n_iterations,
+        "effective_n_iterations": n_iterations * batch_size if strategy == "single_point_longer" else n_iterations,
         "n_runs": n_runs,
         "timestamp": timestamp,
         "best_values": best_values,
@@ -129,7 +140,7 @@ if __name__ == "__main__":
 
     dim = args.dim
     q = args.batch_size
-    n_init = 3 * q
+    n_init = 3 * dim
 
     print(f"\nStarting experiments with d={dim}, q={q}, n_runs={args.n_runs}, n_iterations={args.n_iterations}")
     print("="*70)
@@ -145,6 +156,15 @@ if __name__ == "__main__":
 
     run_experiment(
         strategy="async_simulation",
+        dim=dim,
+        batch_size=q,
+        n_init=n_init,
+        n_iterations=args.n_iterations,
+        n_runs=args.n_runs
+    )
+
+    run_experiment(
+        strategy="single_point_longer",
         dim=dim,
         batch_size=q,
         n_init=n_init,
