@@ -21,6 +21,7 @@ from parallel_bo import (
     create_objective,
     run_qlogei_optimization,
     run_joint_sequential,
+    run_kriging_believer,
     run_async_simulation,
     run_single_point_longer,
     run_random_search,
@@ -29,6 +30,7 @@ from parallel_bo import (
 STRATEGY_FNS = {
     "qlogei": run_qlogei_optimization,
     "joint_sequential": run_joint_sequential,
+    "kriging_believer": run_kriging_believer,
     "async_simulation": run_async_simulation,
     "single_point_longer": run_single_point_longer,
     "random_search": run_random_search,
@@ -37,6 +39,7 @@ STRATEGY_FNS = {
 STRATEGY_NAMES = {
     "qlogei": "qLogEI",
     "joint_sequential": "JointSequential",
+    "kriging_believer": "KrigingBeliever",
     "async_simulation": "AsyncSimulation",
     "single_point_longer": "SinglePointLonger",
     "random_search": "RandomSearch",

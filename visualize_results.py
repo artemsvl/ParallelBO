@@ -25,6 +25,7 @@ import matplotlib.pyplot as plt
 STRATEGY_STYLE = {
     "qLogEI":            {"label": "qLogEI",      "color": "#1f77b4", "marker": "o"},
     "JointSequential":   {"label": "JointSeq",    "color": "#ff7f0e", "marker": "v"},
+    "KrigingBeliever":   {"label": "KrigingBel",  "color": "#9467bd", "marker": "P"},
     "AsyncSimulation":   {"label": "AsyncSim",    "color": "#d62728", "marker": "s"},
     "SinglePointLonger": {"label": "SinglePoint", "color": "#2ca02c", "marker": "^"},
     "RandomSearch":      {"label": "Random",      "color": "#7f7f7f", "marker": "D"},
