@@ -1,0 +1,29 @@
+# --- Experiment output -------------------------------------------------------
+# run_experiments.py writes data/{Strategy}/dim={d}/q={q}/{timestamp}/run_NNN.json
+# plus per-run logs. Hundreds of files per sweep; regenerate instead of tracking.
+data/
+data_from_vm*/
+
+# Plots produced by visualize_results.py / plot_optimizer_diagnostics.py
+plots/
+plots_preview/
+
+# Ad-hoc run logs and scratch output
+*.log
+results.txt
+my_op.txt
+
+# Local reference material (papers, PDFs)
+tmp_refs/
+
+# --- Python ------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# --- Editor / OS / local tooling ---------------------------------------------
+.idea/
+.DS_Store
+.mcp.json
