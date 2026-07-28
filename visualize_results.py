@@ -24,6 +24,7 @@ import matplotlib.pyplot as plt
 # Display style per strategy dir name (order defines plotting order).
 STRATEGY_STYLE = {
     "qLogEI":            {"label": "qLogEI",      "color": "#1f77b4", "marker": "o"},
+    "JointSequential":   {"label": "JointSeq",    "color": "#ff7f0e", "marker": "v"},
     "AsyncSimulation":   {"label": "AsyncSim",    "color": "#d62728", "marker": "s"},
     "SinglePointLonger": {"label": "SinglePoint", "color": "#2ca02c", "marker": "^"},
     "RandomSearch":      {"label": "Random",      "color": "#7f7f7f", "marker": "D"},
