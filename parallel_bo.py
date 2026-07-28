@@ -75,6 +75,60 @@ def run_qlogei_optimization(
     return x_all, y_all, best_value
 
 
+def run_joint_sequential(
+    objective_fn,
+    dim: int,
+    n_init: int,
+    n_iterations: int,
+    batch_size: int,
+    seed: int = 42
+):
+    """Greedy batch BO: qLogEI optimized one candidate at a time.
+
+    Same acquisition and evaluation budget as `run_qlogei_optimization`, but the
+    q x d joint problem is replaced by q sequential d-dimensional problems via
+    `optimize_acqf(..., sequential=True)`. BoTorch appends each accepted
+    candidate to `X_pending`, so later candidates account for earlier ones
+    through the model's fantasized (not evaluated) values.
+    """
+    x_init = draw_init_points(n_init, dim, seed)
+    y_init = objective_fn(x_init).unsqueeze(-1)
+
+    x_all = x_init.clone()
+    y_all = y_init.clone()
+
+    for iteration in range(n_iterations):
+        model = SingleTaskGP(x_all, y_all)
+        mll = ExactMarginalLogLikelihood(model.likelihood, model)
+        fit_gpytorch_mll_torch(mll)
+
+        qlogei = qLogExpectedImprovement(
+            model=model,
+            best_f=y_all.max().item()
+        )
+
+        candidates, acq_value = optimize_acqf(
+            acq_function=qlogei,
+            bounds=unit_bounds(dim),
+            q=batch_size,
+            num_restarts=10,
+            raw_samples=1024,
+            sequential=True,
+        )
+
+        y_new = objective_fn(candidates).unsqueeze(-1)
+
+        x_all = torch.cat([x_all, candidates], dim=0)
+        y_all = torch.cat([y_all, y_new], dim=0)
+
+        print(f"Iteration {iteration + 1}/{n_iterations}: Best value = {y_all.max().item():.4f}, "
+              f"Total points = {len(x_all)}")
+
+    best_value = y_all.max().item()
+
+    return x_all, y_all, best_value
+
+
 def run_async_simulation(
     objective_fn,
     dim: int,
